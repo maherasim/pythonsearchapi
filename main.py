@@ -4,6 +4,7 @@ from model import User, verificationcode,db
 from sqlalchemy.dialects.mysql import mysqlconnector
 import mysql.connector
 import smtplib
+from flasgger import Swagger, swag_from
 from email.mime.text import MIMEText
 from email_validator import validate_email, EmailNotValidError
 
@@ -13,7 +14,7 @@ app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://admin:Fire12345@pinng-dev.cmyva7x3ctnc.ap-southeast-2.rds.amazonaws.com:3306/dev'
 db.init_app(app)
-
+Swagger(app)
 
 db.dialect = mysqlconnector.dialect()
 
@@ -21,6 +22,7 @@ db.dialect = mysqlconnector.dialect()
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'DBAPI': mysql.connector.connect}}
 
 @app.route('/search-invitees', methods=['POST'])
+@swag_from('search_invitees.yml')
 def search_invitees():
     input_data = request.json
 
@@ -87,6 +89,7 @@ def send_verification_email(email, code):
         server.sendmail(sender_email, [email], msg.as_string())
 
 @app.route('/send-2fa-code', methods=['POST'])
+@swag_from('send_2fa_code.yml')
 def send_2fa_code():
     input_data = request.json
 
@@ -105,6 +108,7 @@ def send_2fa_code():
     return jsonify({'status': 'Success', 'message': 'Verification code sent successfully'}), 200
 
 @app.route('/confirm-2fa-code', methods=['POST'])
+@swag_from('confirm_2fa_code.yml') 
 def confirm_2fa_code():
     input_data = request.json
 

@@ -1,0 +1,22 @@
+---
+tags:
+  - 2FA
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      id: 2FARequest
+      properties:
+        email:
+          type: string
+          description: The email address for which to send the verification code
+    example:
+      email: user@example.com
+responses:
+  200:
+    description: Successfully sent the verification code
+  400:
+    description: Invalid email format
+  422:
+    description: Missing required fields in the request
