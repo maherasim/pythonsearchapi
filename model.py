@@ -7,6 +7,21 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
 
+class LinkedCalendar(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+class CalendarSource(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    owner_id = db.Column(db.String(36))
+    source_type_id = db.Column(db.String(36))
+    display_name = db.Column(db.String(250))
+    config = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime)
+
     # Add more fields as needed
 class verificationcode(db.Model):
     id = db.Column(db.Integer, primary_key=True)

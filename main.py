@@ -1,6 +1,6 @@
 import random
 from flask import Flask, request, jsonify
-from model import User, verificationcode,db
+from model import CalendarSource, User, verificationcode,db
 from sqlalchemy.dialects.mysql import mysqlconnector
 import mysql.connector
 import smtplib
@@ -123,6 +123,80 @@ def confirm_2fa_code():
         return jsonify({'status': 'Error', 'message': 'Invalid verification code'}), 401
 
     return jsonify({'status': 'Success', 'message': 'Account verified successfully'}), 200
+
+calendars = [
+    {
+        "id": "e9c780bf-4599-11ee-a550-e884a5ca5570",
+        "name": "BlueSky",
+        "type": "office365"
+    },
+    # ... other calendar entries ...
+]
+
+@app.route('/user/calendars', methods=['GET'])
+def get_linked_calendars():
+    user_id = request.args.get('user_id')
+    
+    # Retrieve linked calendars based on user_id
+    linked_calendars = retrieve_linked_calendars(user_id)
+    
+    # Format the response
+    metadata = {
+        "page": 1,
+        "per_page": 20,
+        "page_count": 20,
+        "total_count": len(linked_calendars),
+        "links": [
+            {"self": f"/user/calendars?page=1&per_page=20"},
+            {"first": f"/user/calendars?page=1&per_page=20"},
+            {"previous": ""},
+            {"next": f"/user/calendars?page=2&per_page=20"},
+            {"last": f"/user/calendars?page=2&per_page=20"}
+        ]
+    }
+
+    records = [{"id": calendar.id, "name": calendar.display_name, "type": calendar.source_type_id} for calendar in linked_calendars]
+
+    response = {
+        "_metadata": metadata,
+        "records": records
+    }
+
+    return jsonify(response)
+
+# Helper function to retrieve linked calendars based on user ID
+def retrieve_linked_calendars(user_id):
+    linked_calendars = CalendarSource.query.filter_by(owner_id=user_id).all()
+    return linked_calendars
+# Create API endpoint for unlinking a calendar
+@app.route('/user/calendars/unlink', methods=['POST'])
+def unlink_calendar():
+    input_data = request.json
+    
+    if 'user_id' not in input_data or 'calendar_id' not in input_data:
+        return jsonify({'status': 'Error', 'message': 'user_id and calendar_id are required'}), 422
+
+    user_id = input_data['user_id']
+    calendar_id = input_data['calendar_id']
+
+    # Delete the calendar source based on user_id and calendar_id
+    delete_calendar_source(user_id, calendar_id)
+
+    return jsonify({'status': 'Success', 'message': 'Calendar unlinked successfully'}), 200
+
+# Helper function to delete a calendar source
+def delete_calendar_source(user_id, calendar_id):
+    calendar_source = CalendarSource.query.filter_by(owner_id=user_id, id=calendar_id).first()
+    if calendar_source:
+        db.session.delete(calendar_source)
+        db.session.commit()
+
+# ... (other routes and code)
+
+# Run the application
+if __name__ == '__main__':
+    app.run()
+
 
 
 if __name__ == '__main__':
