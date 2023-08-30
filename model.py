@@ -13,6 +13,14 @@ class LinkedCalendar(db.Model):
     type = db.Column(db.String(50), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
+class CalendarSourceType(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    name = db.Column(db.String(255))
+    display_name = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f'<CalendarSourceType {self.name}>'
+
 class CalendarSource(db.Model):
     id = db.Column(db.String(36), primary_key=True)
     owner_id = db.Column(db.String(36))
@@ -21,6 +29,9 @@ class CalendarSource(db.Model):
     config = db.Column(db.JSON)
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return f'<CalendarSource {self.display_name}>'
 
     # Add more fields as needed
 class verificationcode(db.Model):

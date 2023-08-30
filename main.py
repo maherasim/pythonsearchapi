@@ -21,6 +21,9 @@ db.dialect = mysqlconnector.dialect()
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'DBAPI': mysql.connector.connect}}
 
+
+
+
 @app.route('/search-invitees', methods=['POST'])
 @swag_from('search_invitees.yml')
 def search_invitees():
@@ -124,14 +127,6 @@ def confirm_2fa_code():
 
     return jsonify({'status': 'Success', 'message': 'Account verified successfully'}), 200
 
-calendars = [
-    {
-        "id": "e9c780bf-4599-11ee-a550-e884a5ca5570",
-        "name": "BlueSky",
-        "type": "office365"
-    },
-    # ... other calendar entries ...
-]
 
 @app.route('/user/calendars', methods=['GET'])
 def get_linked_calendars():
@@ -168,6 +163,8 @@ def get_linked_calendars():
 def retrieve_linked_calendars(user_id):
     linked_calendars = CalendarSource.query.filter_by(owner_id=user_id).all()
     return linked_calendars
+
+
 # Create API endpoint for unlinking a calendar
 @app.route('/user/calendars/unlink', methods=['POST'])
 def unlink_calendar():
@@ -191,11 +188,8 @@ def delete_calendar_source(user_id, calendar_id):
         db.session.delete(calendar_source)
         db.session.commit()
 
-# ... (other routes and code)
 
-# Run the application
-if __name__ == '__main__':
-    app.run()
+
 
 
 
