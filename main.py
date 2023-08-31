@@ -129,6 +129,8 @@ def confirm_2fa_code():
 
 
 @app.route('/user/calendars', methods=['GET'])
+
+@swag_from('link_calendar.yml') 
 def get_linked_calendars():
     user_id = request.args.get('user_id')
     
@@ -167,6 +169,8 @@ def retrieve_linked_calendars(user_id):
 
 # Create API endpoint for unlinking a calendar
 @app.route('/user/calendars/unlink', methods=['POST'])
+
+@swag_from('unlink_calendar.yml')  # Specify the path to the YAML file for this API
 def unlink_calendar():
     input_data = request.json
     

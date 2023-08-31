@@ -1,0 +1,29 @@
+swagger: "2.0"
+info:
+  version: "1.0"
+  title: "Linking Calendar API"
+paths:
+  /link-calendar:
+    post:
+      summary: "Link a calendar to the user's account"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "user_id"
+          in: "body"
+          description: "User ID"
+          required: true
+          schema:
+            type: "string"
+        - name: "calendar_id"
+          in: "body"
+          description: "Calendar ID"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        200:
+          description: "Calendar linked successfully"
+        # Add more response codes and descriptions as needed
