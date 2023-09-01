@@ -1,6 +1,9 @@
+from calendar import Calendar
+import datetime
 import random
+import uuid
 from flask import Flask, request, jsonify
-from model import CalendarSource, User, verificationcode,db
+from model import CalendarSource, CalendarSubscriber, User, verificationcode,db
 from sqlalchemy.dialects.mysql import mysqlconnector
 import mysql.connector
 import smtplib
@@ -191,6 +194,131 @@ def delete_calendar_source(user_id, calendar_id):
     if calendar_source:
         db.session.delete(calendar_source)
         db.session.commit()
+
+def retrieve_calendar_by_id(calendar_id):
+    calendar = Calendar.query.get(calendar_id)
+    return calendar
+
+def retrieve_subscriptions(user_id):
+    subscriptions = CalendarSubscriber.query.filter_by(user_id=user_id).all()
+    subscription_details = []
+
+    for subscription in subscriptions:
+        subscription_details.append({
+            "subscription_id": subscription.id,
+            "calendar_id": subscription.calendar_id,
+            "is_subscribed": subscription.is_subscribed,
+            "created_at": subscription.created_at,
+            "updated_at": subscription.updated_at
+        })
+
+    return subscription_details
+
+def generate_unique_id():
+    return str(uuid.uuid4())
+
+def subscribe_user_to_calendar(user_id, calendar_id):
+    try:
+        # Create a new entry in the calendar_subscriber table
+        new_subscription = CalendarSubscriber(
+            user_id=user_id,
+            calendar_id=calendar_id,
+            is_subscribed=True,
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        db.session.add(new_subscription)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return False
+
+
+
+@app.route('/subscribe', methods=['POST'])
+def subscribe_to_calendar():
+    input_data = request.json
+
+    if 'user_id' not in input_data or 'calendar_id' not in input_data:
+        return jsonify({'status': 'Error', 'message': 'user_id and calendar_id are required'}), 422
+
+    user_id = input_data['user_id']
+    calendar_id = input_data['calendar_id']
+
+    # Subscribe the user to the specified calendar
+    subscribe_result = subscribe_user_to_calendar(user_id, calendar_id)
+
+    if subscribe_result:
+        return jsonify({'status': 'Success', 'message': 'Subscribed to the calendar'}), 200
+    else:
+        return jsonify({'status': 'Error', 'message': 'Failed to subscribe to the calendar'}), 500
+
+
+def unsubscribe_user_from_calendar(user_id, calendar_id):
+    try:
+        # Find and delete the subscription entry
+        subscription_to_delete = CalendarSubscriber.query.filter_by(user_id=user_id, calendar_id=calendar_id).first()
+        if subscription_to_delete:
+            db.session.delete(subscription_to_delete)
+            db.session.commit()
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        return False
+
+@app.route('/unsubscribe', methods=['POST'])
+def unsubscribe_from_calendar():
+    input_data = request.json
+
+    if 'user_id' not in input_data or 'calendar_id' not in input_data:
+        return jsonify({'status': 'Error', 'message': 'user_id and calendar_id are required'}), 422
+
+    user_id = input_data['user_id']
+    calendar_id = input_data['calendar_id']
+
+    # Unsubscribe the user from the specified calendar
+    unsubscribe_result = unsubscribe_user_from_calendar(user_id, calendar_id)
+
+    if unsubscribe_result:
+        return jsonify({'status': 'Success', 'message': 'Unsubscribed from the calendar'}), 200
+    else:
+        return jsonify({'status': 'Error', 'message': 'Failed to unsubscribe from the calendar'}), 500
+
+
+@app.route('/user/subscriptions', methods=['GET'])
+def list_subscriptions():
+    user_id = request.args.get('user_id')
+    
+    # Retrieve the subscriptions for the user
+    subscriptions = retrieve_subscriptions(user_id)
+    
+    # Format the response
+    response = {
+        "user_id": user_id,
+        "subscriptions": subscriptions
+    }
+
+    return jsonify(response)
+
+@app.route('/user/subscriptions/authorized', methods=['GET'])
+def list_subscriptions_authorized():
+    user_id = request.args.get('user_id')
+
+    # Retrieve the subscriptions for the authorized user
+    subscriptions = retrieve_subscriptions(user_id)
+
+    # Format the response
+    response = {
+        "user_id": user_id,
+        "subscriptions": subscriptions
+    }
+
+    return jsonify(response)
 
 
 

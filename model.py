@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -32,6 +33,22 @@ class CalendarSource(db.Model):
 
     def __repr__(self):
         return f'<CalendarSource {self.display_name}>'
+
+class CalendarSubscriber(db.Model):
+    __tablename__ = 'calendar_subscriber'
+
+    id = db.Column(db.String(36), primary_key=True,autoincrement=True)
+    user_id = db.Column(db.String(36), nullable=False)
+    calendar_id = db.Column(db.String(36), nullable=False)
+    is_subscribed = db.Column(db.Boolean, nullable=False, default=False)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+
+
+
+
 
     # Add more fields as needed
 class verificationcode(db.Model):
