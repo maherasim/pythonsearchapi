@@ -1,0 +1,42 @@
+tags:
+  - Calendar Subscription
+parameters:
+  - in: query
+    name: user_id
+    required: true
+    type: string
+    description: The ID of the user whose subscriptions are being listed
+responses:
+  200:
+    description: Successfully retrieved user subscriptions
+    schema:
+      id: ListUserSubscriptionsResponse
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user
+        subscriptions:
+          type: array
+          description: List of user's subscriptions
+          items:
+            id: SubscriptionItem
+            properties:
+              subscription_id:
+                type: string
+                description: The ID of the subscription
+              calendar_id:
+                type: string
+                description: The ID of the subscribed calendar
+              is_subscribed:
+                type: boolean
+                description: Indicates if the user is subscribed (true) or not (false)
+              created_at:
+                type: string
+                format: date-time
+                description: Timestamp of when the subscription was created
+              updated_at:
+                type: string
+                format: date-time
+                description: Timestamp of when the subscription was last updated
+  422:
+    description: Missing required fields in the request

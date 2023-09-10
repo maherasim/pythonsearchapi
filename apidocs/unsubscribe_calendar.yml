@@ -1,0 +1,23 @@
+tags:
+  - Calendar Subscription
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      id: UnsubscribeCalendarRequest
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user unsubscribing from the calendar
+        calendar_id:
+          type: string
+          description: The ID of the calendar to unsubscribe from
+    example:
+      user_id: "123"
+      calendar_id: "calendar123"
+responses:
+  200:
+    description: Successfully unsubscribed from the calendar
+  422:
+    description: Missing required fields in the request

@@ -1,0 +1,23 @@
+tags:
+  - Calendar Subscription
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      id: SubscribeCalendarRequest
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user subscribing to the calendar
+        calendar_id:
+          type: string
+          description: The ID of the calendar to subscribe to
+    example:
+      user_id: "123"
+      calendar_id: "calendar123"
+responses:
+  200:
+    description: Successfully subscribed to the calendar
+  422:
+    description: Missing required fields in the request

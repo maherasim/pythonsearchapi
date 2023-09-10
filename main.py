@@ -1,9 +1,14 @@
 from calendar import Calendar
 import datetime
+from operator import or_
 import random
+from model import Calendar, CalendarSharedUserInvite
+from sqlalchemy.orm import Query
+
+
 import uuid
-from flask import Flask, request, jsonify
-from model import CalendarSource, CalendarSubscriber, User, verificationcode,db
+from flask import Flask, request, jsonify, session
+from model import CalendarSharedUser, CalendarSource, CalendarSubscriber, User, verificationcode,db
 from sqlalchemy.dialects.mysql import mysqlconnector
 import mysql.connector
 import smtplib
@@ -28,7 +33,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'connect_args': {'DBAPI': mysql.conne
 
 
 @app.route('/search-invitees', methods=['POST'])
-@swag_from('search_invitees.yml')
+@swag_from('apidocs/search_invitees.yml')
+
 def search_invitees():
     input_data = request.json
 
@@ -95,7 +101,9 @@ def send_verification_email(email, code):
         server.sendmail(sender_email, [email], msg.as_string())
 
 @app.route('/send-2fa-code', methods=['POST'])
-@swag_from('send_2fa_code.yml')
+@swag_from('apidocs/send_2fa_code.yml')
+
+
 def send_2fa_code():
     input_data = request.json
 
@@ -114,7 +122,6 @@ def send_2fa_code():
     return jsonify({'status': 'Success', 'message': 'Verification code sent successfully'}), 200
 
 @app.route('/confirm-2fa-code', methods=['POST'])
-@swag_from('confirm_2fa_code.yml') 
 def confirm_2fa_code():
     input_data = request.json
 
@@ -133,7 +140,9 @@ def confirm_2fa_code():
 
 @app.route('/user/calendars', methods=['GET'])
 
-@swag_from('link_calendar.yml') 
+
+@swag_from('apidocs/link_calendar.yml') 
+
 def get_linked_calendars():
     user_id = request.args.get('user_id')
     
@@ -173,7 +182,7 @@ def retrieve_linked_calendars(user_id):
 # Create API endpoint for unlinking a calendar
 @app.route('/user/calendars/unlink', methods=['POST'])
 
-@swag_from('unlink_calendar.yml')  # Specify the path to the YAML file for this API
+@swag_from('apidocs/unlink_calendar.yml')  # Specify the path to the YAML file for this API
 def unlink_calendar():
     input_data = request.json
     
@@ -219,8 +228,11 @@ def generate_unique_id():
 
 def subscribe_user_to_calendar(user_id, calendar_id):
     try:
+        subscription_id = str(uuid.uuid4())
+
         # Create a new entry in the calendar_subscriber table
         new_subscription = CalendarSubscriber(
+             id=subscription_id,
             user_id=user_id,
             calendar_id=calendar_id,
             is_subscribed=True,
@@ -272,6 +284,8 @@ def unsubscribe_user_from_calendar(user_id, calendar_id):
         return False
 
 @app.route('/unsubscribe', methods=['POST'])
+@swag_from('apidocs/unsubscribe_calendar.yml')
+
 def unsubscribe_from_calendar():
     input_data = request.json
 
@@ -291,6 +305,8 @@ def unsubscribe_from_calendar():
 
 
 @app.route('/user/subscriptions', methods=['GET'])
+@swag_from('apidocs/list_user_subscription.yml')
+
 def list_subscriptions():
     user_id = request.args.get('user_id')
     
@@ -306,6 +322,8 @@ def list_subscriptions():
     return jsonify(response)
 
 @app.route('/user/subscriptions/authorized', methods=['GET'])
+@swag_from('apidocs/list_authorized_user_subscriptions.yml')
+
 def list_subscriptions_authorized():
     user_id = request.args.get('user_id')
 
@@ -320,8 +338,160 @@ def list_subscriptions_authorized():
 
     return jsonify(response)
 
+@app.route('/user/shared-calendars-by-me/<user_id>', methods=['GET'])
+#@swag_from('apidocs/shared_calendars.yml')  # Swagger documentation for this endpoint
+
+def get_shared_calendars_by_me(user_id):
+    try:
+        # Query the shared calendars for the specified user
+        shared_calendars = db.session.query(Calendar).join(
+            CalendarSharedUser,
+            CalendarSharedUser.calendar_id == Calendar.id
+        ).filter(CalendarSharedUser.user_id == user_id).all()
+
+        # Extract relevant information (e.g., calendar ID and name) and create a response
+        response = [{'id': calendar.id, 'name': calendar.name} for calendar in shared_calendars]
+
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
+@app.route('/update-sharing-level', methods=['PUT'])
+def update_sharing_level():
+    try:
+        # Parse request data
+        data = request.get_json()
+        user_id = data.get('user_id')  # Target user's ID
+        calendar_id = data.get('calendar_id')  # Calendar ID
+        new_access_level = data.get('access_level')  # New access level
+
+        # Check if you have permission to update sharing level (you are the owner)
+     #   your_user_id = session.get('user_id')  # Retrieve user ID from the session
+
+        if user_id is None:
+            return jsonify({'error': 'User is not authenticated.'}), 401
+
+        # Check if the calendar_shared_user entry exists
+        shared_calendar_entry = CalendarSharedUser.query.filter_by(
+            owner_id=user_id,
+            calendar_id=calendar_id
+        ).first()
+
+        if shared_calendar_entry:
+            # Update the access level
+            shared_calendar_entry.access_level = new_access_level
+            db.session.commit()
+            return jsonify({'message': 'Sharing level updated successfully.'}), 200
+        else:
+            return jsonify({'error': 'Calendar share not found.'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+
+
+@app.route('/my-shared-calendars', methods=['GET'])
+def get_my_shared_calendars():
+    try:
+        # Get query parameters for paging and filtering
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 10))
+        user_id = request.args.get('user_id')  # Your user ID
+        search_phrase = request.args.get('search_phrase', '')
+
+        # Calculate the offset for paging
+        offset = (page - 1) * per_page
+
+        # Query the shared calendars based on owner_id
+        shared_calendars = db.session.query(CalendarSharedUser, User, Calendar).join(
+            User,
+            User.id == CalendarSharedUser.user_id
+        ).join(
+            Calendar,
+            Calendar.id == CalendarSharedUser.calendar_id
+        ).filter(
+            CalendarSharedUser.owner_id == user_id,
+            (Calendar.name.like(f"%{search_phrase}%") | User.name.like(f"%{search_phrase}%"))
+        ).offset(offset).limit(per_page).all()
+
+        # Format the response
+        response = {
+            "page": page,
+            "per_page": per_page,
+            "total_count": len(shared_calendars),
+            "shared_calendars": [
+                {
+                    "share_id": shared_user.id,
+                    "shared_with_user": user.name,
+                    "calendar_id": calendar.id,
+                    "calendar_name": calendar.name,
+                    "access_level": shared_user.access_level,
+                }
+                for shared_user, user, calendar in shared_calendars
+            ]
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+# Create an API endpoint to remove a share
+@app.route('/remove-calendar-share', methods=['DELETE'])
+def remove_calendar_share():
+    try:
+        # Parse request data
+        data = request.get_json()
+        user_id = data.get('user_id')  
+        calendar_id = data.get('calendar_id')  # Calendar ID
+
+        shared_calendar_entry = CalendarSharedUser.query.filter_by(
+            user_id=user_id,
+            calendar_id=calendar_id
+        ).first()
+
+        if shared_calendar_entry:
+            # Delete the shared calendar entry
+            db.session.delete(shared_calendar_entry)
+            db.session.commit()
+            return jsonify({'message': 'Calendar share removed successfully.'}), 200
+        else:
+            return jsonify({'error': 'Calendar share not found.'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/share-calendar-for-inviting', methods=['POST'])
+def share_calendar_invite():
+    try:
+        data = request.json
+
+        owner_id = data.get('owner_id')
+        user_id = data.get('user_id')
+        calendar_id = data.get('calendar_id')
+        access_level = data.get('access_level')
+
+        # Generate a new UUID for the sharing request
+        invite_id = str(uuid.uuid4())
+
+        # Create a new sharing request with the generated UUID
+        invite = CalendarSharedUserInvite(
+            id=invite_id,  # Assign the generated UUID as the primary key
+            owner_id=owner_id,
+            user_id=user_id,
+            calendar_id=calendar_id,
+            access_level=access_level
+        )
+
+        db.session.add(invite)
+        db.session.commit()
+
+        return jsonify({'message': 'Sharing request sent successfully.'}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 
