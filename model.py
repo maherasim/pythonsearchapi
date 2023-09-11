@@ -68,7 +68,7 @@ class CalendarSharedUserInvite(Base):
     __tablename__ = 'calendar_shared_user_invite'
     id = db.Column(db.String(36), primary_key=True, default=str(uuid.uuid4()), unique=True)
 
-    id = Column(VARCHAR(36), primary_key=True)
+
     owner_id = Column(VARCHAR(36), nullable=False)
     user_id = Column(VARCHAR(36), nullable=False)
     calendar_id = Column(VARCHAR(36), nullable=False)

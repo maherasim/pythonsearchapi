@@ -2,6 +2,7 @@ from calendar import Calendar
 import datetime
 from operator import or_
 import random
+import boto3
 from model import Calendar, CalendarSharedUserInvite
 from sqlalchemy.orm import Query
 
@@ -51,6 +52,14 @@ def search_invitees():
 
     return jsonify(results)
 
+aws_access_key_id = 'your_access_key_id'
+aws_secret_access_key = 'your_secret_access_key'
+aws_region = 'your_aws_region'
+
+# Create an SQS client
+sqs = boto3.client('sqs', region_name=aws_region,
+                  aws_access_key_id=aws_access_key_id,
+                  aws_secret_access_key=aws_secret_access_key)
 
 
 
@@ -466,20 +475,21 @@ def remove_calendar_share():
 @app.route('/share-calendar-for-inviting', methods=['POST'])
 def share_calendar_invite():
     try:
-        data = request.json
+        data = request.get_json()
 
         owner_id = data.get('owner_id')
         user_id = data.get('user_id')
         calendar_id = data.get('calendar_id')
         access_level = data.get('access_level')
 
-        # Generate a new UUID for the sharing request
+        # Check if the user has permission to share this calendar
+        if not has_permission(owner_id, calendar_id):
+            return jsonify({'error': 'Permission denied.'}), 403
         invite_id = str(uuid.uuid4())
-
-        # Create a new sharing request with the generated UUID
+        # Create a new CalendarSharedUserInvite entry
         invite = CalendarSharedUserInvite(
-            id=invite_id,  # Assign the generated UUID as the primary key
             owner_id=owner_id,
+            id=invite_id,
             user_id=user_id,
             calendar_id=calendar_id,
             access_level=access_level
@@ -488,10 +498,69 @@ def share_calendar_invite():
         db.session.add(invite)
         db.session.commit()
 
+        # Send a notification via Amazon SQS
+        send_notification_via_sqs(invite)
+
         return jsonify({'message': 'Sharing request sent successfully.'}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Helper function to check if the user has permission to share the calendar
+def has_permission(owner_id, calendar_id):
+
+    calendar_owner_id = get_calendar_owner_id(calendar_id)
+
+    if calendar_owner_id == owner_id:
+        return True
+    else:
+        return False
+
+def get_calendar_owner_id(calendar_id):
+    try:
+        # Query the Calendar table to get the owner_id based on calendar_id
+        calendar = Calendar.query.filter_by(id=calendar_id).first()
+        
+        if calendar:
+            return calendar.owner_id
+        else:
+            # Calendar not found
+            return None
+    except Exception as e:
+        # Handle any exceptions that may occur during the database query
+        print(f"Error retrieving calendar owner ID: {str(e)}")
+        return None
+
+
+# Helper function to send a notification via Amazon SQS
+def send_notification_via_sqs(invite):
+    try:
+        # Replace 'your_sqs_queue_url' with your actual SQS queue URL
+        sqs_queue_url = 'your_sqs_queue_url'
+
+
+    
+
+     
+        sqs = boto3.client('sqs', region_name='your_aws_region')
+
+        # Create a message with the sharing details
+        message = f"Sharing request from {invite.owner_id} to {invite.user_id} for calendar {invite.calendar_id}"
+
+        # Send the message to the SQS queue
+        response = sqs.send_message(
+            QueueUrl=sqs_queue_url,
+            MessageBody=message
+        )
+
+        return True
+
+    except Exception as e:
+        # Handle any exceptions that may occur while sending the message
+        print(f"Error sending SQS message: {str(e)}")
+        return False
+
+
 
 
 
