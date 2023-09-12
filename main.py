@@ -1,5 +1,6 @@
 from calendar import Calendar
 import datetime
+import logging
 from operator import or_
 import random
 import boto3
@@ -52,14 +53,9 @@ def search_invitees():
 
     return jsonify(results)
 
-aws_access_key_id = 'your_access_key_id'
-aws_secret_access_key = 'your_secret_access_key'
-aws_region = 'your_aws_region'
 
-# Create an SQS client
-sqs = boto3.client('sqs', region_name=aws_region,
-                  aws_access_key_id=aws_access_key_id,
-                  aws_secret_access_key=aws_secret_access_key)
+
+
 
 
 
@@ -472,6 +468,24 @@ def remove_calendar_share():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+
+
+
+
+
+
+aws_access_key_id = 'AKIA3H4LQUGRK5LN2POG'
+aws_secret_access_key = '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'
+aws_region = 'ap-southeast-2'
+
+# Create an SQS client
+sqs = boto3.client('sqs', region_name=aws_region,
+                  aws_access_key_id=aws_access_key_id,
+                  aws_secret_access_key=aws_secret_access_key)
+
+
+
 @app.route('/share-calendar-for-inviting', methods=['POST'])
 def share_calendar_invite():
     try:
@@ -532,33 +546,43 @@ def get_calendar_owner_id(calendar_id):
         return None
 
 
-# Helper function to send a notification via Amazon SQS
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 def send_notification_via_sqs(invite):
     try:
-        # Replace 'your_sqs_queue_url' with your actual SQS queue URL
-        sqs_queue_url = 'your_sqs_queue_url'
 
+       # sqs_queue_url = 'https://ap-southeast-2.queue.amazonaws.com/772849836450/pinng'
+# Get the queue URL
+        sqs = boto3.client('sqs', region_name='ap-southeast-2')
+        sqs_queue_url = sqs.get_queue_url(QueueName='pinng')['https://ap-southeast-2.queue.amazonaws.com/772849836450/pinng']
 
-    
+        
 
-     
-        sqs = boto3.client('sqs', region_name='your_aws_region')
-
-        # Create a message with the sharing details
+        
         message = f"Sharing request from {invite.owner_id} to {invite.user_id} for calendar {invite.calendar_id}"
 
-        # Send the message to the SQS queue
+ 
+        logger.info(f"Sending message to SQS queue: {message}")
+
+       
         response = sqs.send_message(
             QueueUrl=sqs_queue_url,
             MessageBody=message
         )
 
+        # Log that the message was sent successfully
+        logger.info(f"Message sent successfully. Response: {response}")
+
         return True
 
     except Exception as e:
-        # Handle any exceptions that may occur while sending the message
-        print(f"Error sending SQS message: {str(e)}")
+        logger.error(f"Error sending SQS message: {str(e)}")
         return False
+
+
+
 
 
 
